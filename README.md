@@ -13,8 +13,6 @@ Modern React + Node.js + SQL Server inventory management for a single retailer.
 | **Sales** | Stock OUT with location + stock validation |
 | **Stock Report** | Current stock summary + transaction ledger |
 
-**Login:** `admin` / `welcome123`
-
 ---
 
 ## Step 1 — Run Database Script (Manual)
@@ -39,17 +37,7 @@ cd backend
 copy .env.example .env
 ```
 
-Edit `.env` with your SQL Server credentials:
-
-```env
-DB_SERVER=localhost
-DB_DATABASE=PawanPutra
-DB_USER=sa
-DB_PASSWORD=YourPassword123
-DB_PORT=1433
-JWT_SECRET=InventoryInOneTap_SecretKey_2026
-PORT=5000
-```
+Copy `backend/.env.example` to `backend/.env` and fill in your own SQL Server, JWT, and payment values. Do not put real passwords, keys, or server IPs in this README.
 
 Start API:
 
@@ -131,10 +119,6 @@ Opening Stock  →  Stock IN (Purchase)  →  Stock OUT (Sales)
 
 ---
 
-## Production hosting (Amazon EC2)
+## Production hosting
 
-Full step-by-step guide for **EC2 `13.205.231.60`** + SQL Server **`43.205.62.168`**:
-
-→ **[deploy/DEPLOY-EC2.md](deploy/DEPLOY-EC2.md)**
-
-Includes Nginx, PM2, `.env`, SSL, and security group setup. Config files are in `deploy/`.
+See **[deploy/DEPLOY-EC2.md](deploy/DEPLOY-EC2.md)** for Nginx, PM2, `.env`, SSL, and security group setup. Config files are in `deploy/`.
