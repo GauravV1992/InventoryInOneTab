@@ -1,0 +1,72 @@
+# InventoryInOneTap - https://inventoryinonetap.com
+User-agent: *
+Allow: /
+
+# Block API and authenticated app areas
+Disallow: /api/
+Disallow: /materials$
+Disallow: /suppliers$
+Disallow: /locations$
+Disallow: /opening-stock$
+Disallow: /purchase-inward$
+Disallow: /sales$
+Disallow: /stock-report$
+Disallow: /account$
+Disallow: /team$
+
+# Public SEO landing pages (45)
+Allow: /stock-management-software
+Allow: /inventory-management-software
+Allow: /inventory-software-india
+Allow: /inventory-management-system
+Allow: /best-stock-management-software
+Allow: /stock-inventory-software
+Allow: /stock-management-software-india
+Allow: /gst-inventory-billing-software
+Allow: /warehouse-stock-management-system
+Allow: /godown-stock-management-software
+Allow: /retailer-stock-management-software
+Allow: /distributor-inventory-software
+Allow: /inventory-stock-control-software
+Allow: /small-business-inventory-app
+Allow: /purchase-sales-stock-software
+Allow: /multi-warehouse-inventory-software
+Allow: /material-master-inventory-app
+Allow: /cloud-inventory-software-india
+Allow: /stock-report-gst-invoice-app
+Allow: /opening-stock-software
+Allow: /inventory-in-one-tap
+Allow: /online-stock-management-software
+Allow: /inventory-software-for-traders
+Allow: /wholesale-inventory-management-software
+Allow: /inventory-software-for-shops
+Allow: /stock-ledger-software
+Allow: /purchase-inward-software
+Allow: /sales-invoice-software-india
+Allow: /hsn-inventory-software
+Allow: /low-stock-alert-inventory-software
+Allow: /fifo-inventory-software
+Allow: /inventory-software-ahmedabad
+Allow: /inventory-software-mumbai
+Allow: /inventory-software-delhi
+Allow: /inventory-software-surat
+Allow: /saas-inventory-software
+Allow: /best-inventory-software-for-sme
+Allow: /inventory-billing-software
+Allow: /barcode-free-inventory-software
+Allow: /multi-location-inventory-software
+Allow: /supplier-purchase-inventory-software
+Allow: /gst-tax-invoice-pdf-software
+Allow: /inventory-software-for-distributors-india
+Allow: /real-time-inventory-tracking-software
+Allow: /inventory-management-app-india
+
+Allow: /login
+Allow: /register
+Allow: /pricing
+Allow: /terms
+Allow: /privacy
+Allow: /cookies
+
+Sitemap: https://inventoryinonetap.com/sitemap.xml
+Host: inventoryinonetap.com
