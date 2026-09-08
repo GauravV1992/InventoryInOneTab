@@ -289,10 +289,11 @@ export function buildSalesInvoicePdf(sale, company) {
 
   autoTable(doc, {
     startY: y,
-    head: [['#', 'Material', 'HSN', 'Warehouse', 'Qty', 'Rate', 'Amount']],
+    head: [['#', 'Material', 'Size', 'HSN', 'Warehouse', 'Qty', 'Rate', 'Amount']],
     body: items.map((item, idx) => [
       idx + 1,
       item.MaterialName || '—',
+      item.Size || '—',
       item.HSNCode || '—',
       item.LocationName || item.DetailLocationName || '—',
       Number(item.Quantity).toFixed(2),
@@ -315,10 +316,11 @@ export function buildSalesInvoicePdf(sale, company) {
     alternateRowStyles: { fillColor: softBrand },
     styles: { lineColor: [226, 232, 240], lineWidth: 0.2 },
     columnStyles: {
-      0: { cellWidth: 10, halign: 'center' },
-      4: { halign: 'right' },
-      5: { halign: 'right' },
-      6: { halign: 'right', fontStyle: 'bold' },
+      0: { cellWidth: 8,halign: 'center' },
+      2: { cellWidth: 16 },
+      5: {halign: 'right' },
+      6: {halign: 'right' },
+      7: {halign: 'right', fontStyle: 'bold' },
     },
     margin: { left: leftX, right: leftX },
     tableLineColor: [226, 232, 240],
@@ -461,7 +463,7 @@ export function buildInvoiceShareText(sale, company) {
   const billTo = getSaleBillTo(sale);
   const invoiceTerms = resolveInvoiceTerms(sale);
   const itemLines = items.map((item, idx) =>
-    `${idx + 1}. ${item.MaterialName || '—'} | Qty: ${Number(item.Quantity).toFixed(2)} | ${formatMoney(item.Amount ?? item.Quantity * item.Rate)}`
+    `${idx + 1}. ${item.MaterialName || '—'}${item.Size ? ` (${item.Size})` : ''} | Qty: ${Number(item.Quantity).toFixed(2)} | ${formatMoney(item.Amount ?? item.Quantity * item.Rate)}`
   ).join('\n');
 
   return [

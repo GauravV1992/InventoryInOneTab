@@ -78,6 +78,37 @@ function withCompany(req, params = {}) {
   return { CompanyId: req.user.companyId, ...params };
 }
 
+async function ensureMaterialSizeColumn() {
+  await query(`
+    IF COL_LENGTH('dbo.MaterialMaster', 'Size') IS NULL
+      ALTER TABLE dbo.MaterialMaster ADD Size NVARCHAR(50) NULL;
+  `);
+}
+
+async function listMaterials(companyId) {
+  await ensureMaterialSizeColumn();
+  const result = await query(`
+    SELECT MaterialId, MaterialName, Color, ISNULL(Size, N'') AS Size, HSNCode,
+           Rate, ISNULL(SalesRate, 0) AS SalesRate,
+           Unit, Remark, IsActive, CreatedAt, UpdatedAt
+    FROM dbo.MaterialMaster
+    WHERE IsActive = 1 AND CompanyId = @CompanyId
+    ORDER BY MaterialName
+  `, { CompanyId: companyId });
+  return result.recordset;
+}
+
+async function saveMaterialSize(companyId, materialId, size) {
+  if (!materialId) return;
+  await ensureMaterialSizeColumn();
+  const value = String(size || '').trim() || null;
+  await query(`
+    UPDATE dbo.MaterialMaster
+    SET Size = @Size, UpdatedAt = SYSUTCDATETIME()
+    WHERE MaterialId = @MaterialId AND CompanyId = @CompanyId
+  `, { Size: value, MaterialId: materialId, CompanyId: companyId });
+}
+
 function buildAuthToken(user) {
   return jwt.sign(
     {
@@ -1136,12 +1167,11 @@ app.delete('/api/locations/:id', auth, requireActiveSubscription, async (req, re
 app.get('/api/materials', auth, async (req, res) => {
   try {
     const { search } = req.query;
-    const result = await execProc('sp_GetMaterials', withCompany(req));
-    let rows = result.recordset;
+    let rows = await listMaterials(req.user.companyId);
     if (search && String(search).length >= 3) {
       const q = String(search).toLowerCase();
       rows = rows.filter((m) =>
-        [m.MaterialName, m.Color, m.HSNCode].some((f) => (f || '').toLowerCase().includes(q))
+        [m.MaterialName, m.Color, m.Size, m.HSNCode].some((f) => (f || '').toLowerCase().includes(q))
       );
     }
     res.json(rows);
@@ -1153,8 +1183,9 @@ app.get('/api/materials', auth, async (req, res) => {
 app.get('/api/materials/:id', auth, async (req, res) => {
   try {
     const materialId = parseInt(req.params.id, 10);
+    await ensureMaterialSizeColumn();
     const result = await query(`
-      SELECT MaterialId, MaterialName, Color, HSNCode, Rate, ISNULL(SalesRate, 0) AS SalesRate,
+      SELECT MaterialId, MaterialName, Color, ISNULL(Size, N'') AS Size, HSNCode, Rate, ISNULL(SalesRate, 0) AS SalesRate,
              Unit, Remark, IsActive, CreatedAt, UpdatedAt
       FROM dbo.MaterialMaster
       WHERE MaterialId = @MaterialId AND CompanyId = @CompanyId AND IsActive = 1
@@ -1168,12 +1199,13 @@ app.get('/api/materials/:id', auth, async (req, res) => {
 
 app.post('/api/materials', auth, requireActiveSubscription, async (req, res) => {
   try {
-    const { materialId, materialName, color, hsnCode, rate, salesRate, unit, remark } = req.body;
+    const { materialId, materialName, color, size, hsnCode, rate, salesRate, unit, remark } = req.body;
     const id = parseInt(materialId, 10);
     if (!id) {
       await assertCanAddMaterial(req.user.companyId);
     }
-    const result = await execProc('sp_SaveMaterial', withCompany(req, {
+    await ensureMaterialSizeColumn();
+    const saveParams = withCompany(req, {
       MaterialId: id || null,
       MaterialName: materialName,
       Color: color || null,
@@ -1182,9 +1214,19 @@ app.post('/api/materials', auth, requireActiveSubscription, async (req, res) => 
       SalesRate: salesRate != null && salesRate !== '' ? parseFloat(salesRate) : 0,
       Unit: unit || 'Pcs',
       Remark: remark || null,
-    }));
+    });
+    let result;
+    try {
+      result = await execProc('sp_SaveMaterial', { ...saveParams, Size: size || null });
+    } catch (err) {
+      const msg = String(err.message || '');
+      if (!/too many arguments|Size/i.test(msg)) throw err;
+      result = await execProc('sp_SaveMaterial', saveParams);
+    }
+    const savedId = id || parseInt(result.recordset?.[0]?.MaterialId, 10);
+    await saveMaterialSize(req.user.companyId, savedId, size);
     if (!id) invalidateSubscriptionCache(req.user.companyId);
-    res.json(result.recordset[0]);
+    res.json({ MaterialId: savedId });
   } catch (err) {
     const status = isLimitError(err.message) ? 400 : 500;
     res.status(status).json({ error: err.message });
@@ -1716,6 +1758,11 @@ async function startServer() {
     assertSecureConfig();
     await getPool();
     console.log(`Database connected: ${config.server}:${config.port} / ${config.database}`);
+    try {
+      await ensureMaterialSizeColumn();
+    } catch (colErr) {
+      console.error('WARNING: Could not ensure MaterialMaster.Size column:', colErr.message);
+    }
   } catch (err) {
     console.error('WARNING: Database not connected on startup.');
     console.error(err.message);

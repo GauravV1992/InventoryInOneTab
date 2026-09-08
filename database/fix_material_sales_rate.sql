@@ -12,6 +12,12 @@ BEGIN
 END
 GO
 
+IF COL_LENGTH('dbo.MaterialMaster', 'Size') IS NULL
+BEGIN
+    ALTER TABLE dbo.MaterialMaster ADD Size NVARCHAR(50) NULL;
+END
+GO
+
 -- Seed sales rate from purchase rate where sales rate is still 0
 UPDATE dbo.MaterialMaster
 SET SalesRate = Rate
@@ -23,7 +29,7 @@ CREATE OR ALTER PROCEDURE dbo.sp_GetMaterials
 AS
 BEGIN
     SET NOCOUNT ON;
-    SELECT MaterialId, MaterialName, Color, HSNCode,
+    SELECT MaterialId, MaterialName, Color, Size, HSNCode,
            Rate, ISNULL(SalesRate, 0) AS SalesRate,
            Unit, Remark, IsActive, CreatedAt, UpdatedAt
     FROM dbo.MaterialMaster
@@ -37,6 +43,7 @@ CREATE OR ALTER PROCEDURE dbo.sp_SaveMaterial
     @MaterialId   INT = NULL,
     @MaterialName NVARCHAR(150),
     @Color        NVARCHAR(50) = NULL,
+    @Size         NVARCHAR(50) = NULL,
     @HSNCode      NVARCHAR(20) = NULL,
     @Rate         DECIMAL(18,2),
     @SalesRate    DECIMAL(18,2) = 0,
@@ -49,8 +56,31 @@ BEGIN
 
     IF @MaterialId IS NULL OR @MaterialId = 0
     BEGIN
-        INSERT INTO dbo.MaterialMaster (CompanyId, MaterialName, Color, HSNCode, Rate, SalesRate, Unit, Remark)
-        VALUES (@CompanyId, @MaterialName, @Color, @HSNCode, @Rate, @SalesRate, @Unit, @Remark);
+        DECLARE @MaxMaterials INT;
+        DECLARE @ActiveMaterials INT;
+        DECLARE @PlanType NVARCHAR(20);
+
+        SELECT @MaxMaterials = ISNULL(MaxMaterials, 100),
+               @PlanType = ISNULL(PlanType, N'Trial')
+        FROM dbo.CompanyMaster WHERE CompanyId = @CompanyId;
+
+        IF LOWER(@PlanType) = N'trial' AND @MaxMaterials IS NULL SET @MaxMaterials = 100;
+        IF LOWER(@PlanType) = N'basic' AND @MaxMaterials IS NULL SET @MaxMaterials = 100;
+        IF LOWER(@PlanType) = N'standard' AND @MaxMaterials IS NULL SET @MaxMaterials = 300;
+        IF LOWER(@PlanType) = N'premium' AND @MaxMaterials IS NULL SET @MaxMaterials = 3000;
+
+        SELECT @ActiveMaterials = COUNT(*)
+        FROM dbo.MaterialMaster
+        WHERE CompanyId = @CompanyId AND IsActive = 1;
+
+        IF @ActiveMaterials >= @MaxMaterials
+        BEGIN
+            RAISERROR(N'Material limit reached for your plan. Upgrade on Pricing page.', 16, 1);
+            RETURN;
+        END
+
+        INSERT INTO dbo.MaterialMaster (CompanyId, MaterialName, Color, Size, HSNCode, Rate, SalesRate, Unit, Remark)
+        VALUES (@CompanyId, @MaterialName, @Color, @Size, @HSNCode, @Rate, @SalesRate, @Unit, @Remark);
         SELECT SCOPE_IDENTITY() AS MaterialId;
     END
     ELSE
@@ -58,6 +88,7 @@ BEGIN
         UPDATE dbo.MaterialMaster
         SET MaterialName = @MaterialName,
             Color = @Color,
+            Size = @Size,
             HSNCode = @HSNCode,
             Rate = @Rate,
             SalesRate = @SalesRate,

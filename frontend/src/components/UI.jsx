@@ -456,12 +456,12 @@ export function MaterialSelect({
       options={materials}
       getOptionId={(m) => m.MaterialId}
       getOptionLabel={(m) => m.MaterialName}
-      getOptionSearchText={(m) => [m.MaterialName, m.Color, m.HSNCode].filter(Boolean).join(' ')}
-      getOptionMeta={(m) => [m.Color, m.HSNCode, m.Unit].filter(Boolean).join(' · ') || null}
+      getOptionSearchText={(m) => [m.MaterialName, m.Color, m.Size, m.HSNCode].filter(Boolean).join(' ')}
+      getOptionMeta={(m) => [m.Color, m.Size, m.HSNCode, m.Unit].filter(Boolean).join(' · ') || null}
       allowEmpty={allowEmpty}
       emptyLabel={emptyLabel}
       placeholder={placeholder}
-      searchPlaceholder="Search material, color, HSN..."
+      searchPlaceholder="Search material, color, size, HSN..."
       emptyMessage="No material found"
       required={required}
       className={className}

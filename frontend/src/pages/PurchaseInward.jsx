@@ -3,8 +3,10 @@ import { Plus, Trash2, Pencil } from 'lucide-react';
 import api from '../api';
 import { PageHeader, Card, Button, Input, WarehouseSelect, Autocomplete, Alert, Table, Pagination, PageLoading } from '../components/UI';
 import { filterByDateRange, paginate, defaultMonthRange, PAGE_SIZE } from '../utils/listHelpers';
-import { matchMaterial, matchSupplier, materialLabel } from '../utils/autocompleteHelpers';
+import { matchMaterial, matchSupplier, materialLabel, materialDisplayName } from '../utils/autocompleteHelpers';
 import { fetchMasters, invalidateMasterCache } from '../utils/masterCache';
+
+const emptyLine = { materialId: '', materialName: '', color: '', size: '', locationId: '', quantity: '', rate: '' };
 
 export default function PurchaseInward() {
   const [records, setRecords] = useState([]);
@@ -22,7 +24,7 @@ export default function PurchaseInward() {
     supplierName: '',
     remark: '',
   });
-  const [details, setDetails] = useState([{ materialId: '', materialName: '', locationId: '', quantity: '', rate: '' }]);
+  const [details, setDetails] = useState([{ ...emptyLine }]);
   const [materialOptions, setMaterialOptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -79,7 +81,7 @@ export default function PurchaseInward() {
       supplierName: '',
       remark: '',
     });
-    setDetails([{ materialId: '', materialName: '', locationId: '', quantity: '', rate: '' }]);
+    setDetails([{ ...emptyLine }]);
     setEditId(null);
     setMaterialOptions(materials);
   };
@@ -103,11 +105,13 @@ export default function PurchaseInward() {
         ? record.items.map((i) => ({
           materialId: String(i.MaterialId),
           materialName: i.MaterialName || '',
+          color: i.Color || '',
+          size: i.Size || '',
           locationId: String(i.LocationId || ''),
           quantity: String(i.Quantity),
           rate: String(i.Rate),
         }))
-        : [{ materialId: '', materialName: '', locationId: '', quantity: '', rate: '' }]
+        : [{ ...emptyLine }]
     );
     setMaterialOptions(materials);
     setShowForm(true);
@@ -130,14 +134,18 @@ export default function PurchaseInward() {
     }
   };
 
-  const addRow = () => setDetails([...details, { materialId: '', materialName: '', locationId: '', quantity: '', rate: '' }]);
+  const addRow = () => setDetails([...details, { ...emptyLine }]);
   const removeRow = (i) => setDetails(details.filter((_, idx) => idx !== i));
   const updateRow = (i, field, val) => {
     const updated = [...details];
     updated[i][field] = val;
     if (field === 'materialName') {
       const selected = materials.find((m) => m.MaterialId === parseInt(updated[i].materialId, 10));
-      if (!selected || selected.MaterialName !== val) updated[i].materialId = '';
+      if (!selected || selected.MaterialName !== val) {
+        updated[i].materialId = '';
+        updated[i].color = '';
+        updated[i].size = '';
+      }
     }
     setDetails(updated);
   };
@@ -156,6 +164,8 @@ export default function PurchaseInward() {
       ...updated[i],
       materialId: String(selected.MaterialId),
       materialName: selected.MaterialName,
+      color: selected.Color || '',
+      size: selected.Size || '',
       rate: selected.Rate,
     };
     setDetails(updated);
@@ -277,7 +287,10 @@ export default function PurchaseInward() {
     { key: 'SupplierName', label: 'Supplier' },
     {
       key: 'items', label: 'Items',
-      render: (r) => r.items.map((i) => `${i.MaterialName} @ ${i.LocationName || '—'} (${i.Quantity})`).join(', ') || '—',
+      render: (r) => r.items.map((i) => {
+        const color = i.Color ? ` · ${i.Color}` : '';
+        return `${materialDisplayName(i)}${color} @ ${i.LocationName || '—'} (${i.Quantity})`;
+      }).join(', ') || '—',
     },
     {
       key: 'actions', label: 'Actions',
@@ -326,7 +339,7 @@ export default function PurchaseInward() {
               <div className="space-y-3 p-3 sm:p-4">
                 {details.map((row, i) => (
                   <div key={i} className="border border-slate-200 rounded-xl p-3 sm:p-4 bg-slate-50/50">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 items-end">
                       <Autocomplete
                         label="Material"
                         value={row.materialName || ''}
@@ -339,6 +352,20 @@ export default function PurchaseInward() {
                         filterOption={matchMaterial}
                         placeholder="Type material (min 3 chars)..."
                         inputClassName="px-3 py-2 rounded-lg"
+                      />
+                      <Input
+                        label="Color"
+                        value={row.color || ''}
+                        readOnly
+                        placeholder="—"
+                        className="bg-slate-50"
+                      />
+                      <Input
+                        label="Size"
+                        value={row.size || ''}
+                        readOnly
+                        placeholder="—"
+                        className="bg-slate-50"
                       />
                       <WarehouseSelect
                         label="Warehouse *"

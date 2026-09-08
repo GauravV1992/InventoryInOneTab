@@ -2,6 +2,12 @@
 USE PawanPutra;
 GO
 
+IF COL_LENGTH('dbo.MaterialMaster', 'Size') IS NULL
+BEGIN
+    ALTER TABLE dbo.MaterialMaster ADD Size NVARCHAR(50) NULL;
+END
+GO
+
 CREATE OR ALTER PROCEDURE dbo.sp_SaveLocation
     @CompanyId    INT,
     @LocationId   INT = NULL,
@@ -56,13 +62,16 @@ CREATE OR ALTER PROCEDURE dbo.sp_SaveMaterial
     @MaterialId   INT = NULL,
     @MaterialName NVARCHAR(150),
     @Color        NVARCHAR(50) = NULL,
+    @Size         NVARCHAR(50) = NULL,
     @HSNCode      NVARCHAR(20) = NULL,
     @Rate         DECIMAL(18,2),
+    @SalesRate    DECIMAL(18,2) = 0,
     @Unit         NVARCHAR(20),
     @Remark       NVARCHAR(500) = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
+    SET @SalesRate = ISNULL(@SalesRate, 0);
 
     IF @MaterialId IS NULL OR @MaterialId = 0
     BEGIN
@@ -89,15 +98,22 @@ BEGIN
             RETURN;
         END
 
-        INSERT INTO dbo.MaterialMaster (CompanyId, MaterialName, Color, HSNCode, Rate, Unit, Remark)
-        VALUES (@CompanyId, @MaterialName, @Color, @HSNCode, @Rate, @Unit, @Remark);
+        INSERT INTO dbo.MaterialMaster (CompanyId, MaterialName, Color, Size, HSNCode, Rate, SalesRate, Unit, Remark)
+        VALUES (@CompanyId, @MaterialName, @Color, @Size, @HSNCode, @Rate, @SalesRate, @Unit, @Remark);
         SELECT SCOPE_IDENTITY() AS MaterialId;
     END
     ELSE
     BEGIN
         UPDATE dbo.MaterialMaster
-        SET MaterialName = @MaterialName, Color = @Color, HSNCode = @HSNCode,
-            Rate = @Rate, Unit = @Unit, Remark = @Remark, UpdatedAt = SYSUTCDATETIME()
+        SET MaterialName = @MaterialName,
+            Color = @Color,
+            Size = @Size,
+            HSNCode = @HSNCode,
+            Rate = @Rate,
+            SalesRate = @SalesRate,
+            Unit = @Unit,
+            Remark = @Remark,
+            UpdatedAt = SYSUTCDATETIME()
         WHERE MaterialId = @MaterialId AND CompanyId = @CompanyId;
         SELECT @MaterialId AS MaterialId;
     END

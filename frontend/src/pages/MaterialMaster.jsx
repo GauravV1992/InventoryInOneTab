@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Copy } from 'lucide-react';
 import api from '../api';
 import { PageHeader, Card, Button, Input, Select, Textarea, Alert, Table, ListToolbar, Pagination, PageLoading } from '../components/UI';
 import { matchSearch, paginate, PAGE_SIZE } from '../utils/listHelpers';
@@ -8,13 +8,25 @@ import { fetchMaterials, invalidateMasterCache } from '../utils/masterCache';
 const emptyForm = {
   materialName: '',
   color: '',
+  size: '',
   hsnCode: '',
   rate: '',
   salesRate: '',
   unit: 'Pcs',
   remark: '',
 };
-const SEARCH_FIELDS = ['MaterialName', 'Color', 'HSNCode', 'Remark'];
+const SEARCH_FIELDS = ['MaterialName', 'Color', 'Size', 'HSNCode', 'Remark'];
+
+const materialToForm = (m) => ({
+  materialName: m.MaterialName || '',
+  color: m.Color || '',
+  size: m.Size || m.size || '',
+  hsnCode: m.HSNCode || '',
+  rate: m.Rate != null ? String(m.Rate) : '',
+  salesRate: m.SalesRate != null ? String(m.SalesRate) : '',
+  unit: m.Unit || 'Pcs',
+  remark: m.Remark || '',
+});
 
 const fmtLimit = (value) => (value == null || value >= 999999 ? 'Unlimited' : String(value));
 const fmtMoney = (n) => `₹${Number(n || 0).toFixed(2)}`;
@@ -24,6 +36,7 @@ export default function MaterialMaster() {
   const [subscription, setSubscription] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [editId, setEditId] = useState(null);
+  const [isCopy, setIsCopy] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -77,22 +90,34 @@ export default function MaterialMaster() {
     }
     setForm(emptyForm);
     setEditId(null);
+    setIsCopy(false);
     setShowForm(true);
     setError('');
     setSuccess('');
   };
   const openEdit = (m) => {
-    setForm({
-      materialName: m.MaterialName,
-      color: m.Color || '',
-      hsnCode: m.HSNCode || '',
-      rate: m.Rate != null ? String(m.Rate) : '',
-      salesRate: m.SalesRate != null ? String(m.SalesRate) : '',
-      unit: m.Unit,
-      remark: m.Remark || '',
-    });
+    setForm(materialToForm(m));
     setEditId(m.MaterialId);
+    setIsCopy(false);
     setShowForm(true);
+    setError('');
+    setSuccess('');
+  };
+  const openCopy = (m) => {
+    if (subscription && !canAddMaterial) {
+      if (subscription.subscriptionActive === false) {
+        setError('Your subscription has expired. Please renew on the Pricing page.');
+      } else {
+        setError(`Material limit reached (${activeMaterials}/${fmtLimit(maxMaterials)}). Upgrade your plan on Pricing page.`);
+      }
+      return;
+    }
+    setForm(materialToForm(m));
+    setEditId(null);
+    setIsCopy(true);
+    setShowForm(true);
+    setError('');
+    setSuccess('');
   };
 
   const handleSave = async (e) => {
@@ -140,6 +165,7 @@ export default function MaterialMaster() {
   const columns = [
     { key: 'MaterialName', label: 'Material Name' },
     { key: 'Color', label: 'Color' },
+    { key: 'Size', label: 'Size', render: (r) => r.Size || r.size || '—' },
     { key: 'HSNCode', label: 'HSN Code' },
     { key: 'Rate', label: 'Purchase Rate', render: (r) => fmtMoney(r.Rate) },
     { key: 'SalesRate', label: 'Sales Rate', render: (r) => fmtMoney(r.SalesRate) },
@@ -149,8 +175,9 @@ export default function MaterialMaster() {
       key: 'actions', label: 'Actions',
       render: (r) => (
         <div className="flex gap-2">
-          <button onClick={() => openEdit(r)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600"><Pencil size={16} /></button>
-          <button onClick={() => handleDelete(r.MaterialId)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500"><Trash2 size={16} /></button>
+          <button type="button" onClick={() => openEdit(r)} title="Edit" className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600"><Pencil size={16} /></button>
+          <button type="button" onClick={() => openCopy(r)} title="Copy" className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600"><Copy size={16} /></button>
+          <button type="button" onClick={() => handleDelete(r.MaterialId)} title="Delete" className="p-1.5 rounded-lg hover:bg-red-50 text-red-500"><Trash2 size={16} /></button>
         </div>
       ),
     },
@@ -162,7 +189,7 @@ export default function MaterialMaster() {
     <div>
       <PageHeader
         title="Material Master"
-        subtitle="Manage materials with HSN, purchase rate, sales rate, unit and remarks"
+        subtitle="Manage materials with color, size, HSN, purchase rate, sales rate, unit and remarks"
         action={(
           <Button onClick={openAdd} disabled={subscription && !canAddMaterial}>
             <Plus size={16} /> Add Material
@@ -190,10 +217,11 @@ export default function MaterialMaster() {
 
       {showForm && (
         <Card className="p-4 sm:p-6 mb-6">
-          <h3 className="font-semibold mb-4">{editId ? 'Edit Material' : 'New Material'}</h3>
+          <h3 className="font-semibold mb-4">{editId ? 'Edit Material' : isCopy ? 'Copy Material' : 'New Material'}</h3>
           <form onSubmit={handleSave} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <Input label="Material Name *" value={form.materialName} onChange={(e) => setForm({ ...form, materialName: e.target.value })} required />
             <Input label="Color" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} />
+            <Input label="Size" value={form.size} onChange={(e) => setForm({ ...form, size: e.target.value })} placeholder="Optional" />
             <Input label="HSN Code" value={form.hsnCode} onChange={(e) => setForm({ ...form, hsnCode: e.target.value })} />
             <Input label="Purchase Rate *" type="number" step="0.01" value={form.rate} onChange={(e) => setForm({ ...form, rate: e.target.value })} required />
             <Input label="Sales Rate" type="number" step="0.01" value={form.salesRate} onChange={(e) => setForm({ ...form, salesRate: e.target.value })} />
@@ -215,7 +243,7 @@ export default function MaterialMaster() {
         <ListToolbar
           search={search}
           onSearchChange={setSearch}
-          searchPlaceholder="Search by material name, color, HSN code, remark..."
+          searchPlaceholder="Search by material name, color, size, HSN code, remark..."
         />
         <Table columns={columns} data={items} keyField="MaterialId" />
         <Pagination page={currentPage} totalPages={totalPages} total={total} onPageChange={setPage} pageSize={PAGE_SIZE} />

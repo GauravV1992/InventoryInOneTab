@@ -8,13 +8,14 @@ import { matchMaterial, materialLabel } from '../utils/autocompleteHelpers';
 
 const emptyForm = {
   materialId: '',
+  size: '',
   locationId: '',
   quantity: '',
   rate: '',
   stockDate: new Date().toISOString().split('T')[0],
   remark: '',
 };
-const SEARCH_FIELDS = ['MaterialName', 'Color', 'HSNCode', 'LocationName', 'Remark'];
+const SEARCH_FIELDS = ['MaterialName', 'Color', 'Size', 'HSNCode', 'LocationName', 'Remark'];
 const fmtMoney = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export default function OpeningStock() {
@@ -50,9 +51,10 @@ export default function OpeningStock() {
   const filtered = useMemo(
     () => records.filter((r) => {
       if (locationId && String(r.LocationId) !== String(locationId)) return false;
-      return matchSearch(r, search, SEARCH_FIELDS);
+      const size = r.Size || materials.find((m) => m.MaterialId === r.MaterialId)?.Size || '';
+      return matchSearch({ ...r, Size: size }, search, SEARCH_FIELDS);
     }),
-    [records, search, locationId]
+    [records, search, locationId, materials]
   );
   const { items, total, totalPages, currentPage } = useMemo(
     () => paginate(filtered, page, PAGE_SIZE),
@@ -93,6 +95,7 @@ export default function OpeningStock() {
   const columns = [
     { key: 'MaterialName', label: 'Material' },
     { key: 'Color', label: 'Color' },
+    { key: 'Size', label: 'Size', render: (r) => r.Size || materials.find((m) => m.MaterialId === r.MaterialId)?.Size || '—' },
     { key: 'HSNCode', label: 'HSN' },
     { key: 'LocationName', label: 'Location' },
     { key: 'Quantity', label: 'Qty', render: (r) => `${r.Quantity} ${r.Unit}` },
@@ -123,13 +126,14 @@ export default function OpeningStock() {
               value={materialSearch}
               onChange={(v) => {
                 setMaterialSearch(v);
-                setForm({ ...form, materialId: '', rate: '' });
+                setForm({ ...form, materialId: '', size: '', rate: '' });
               }}
               onSelect={(m) => {
                 setMaterialSearch(m.MaterialName);
                 setForm({
                   ...form,
                   materialId: String(m.MaterialId),
+                  size: m.Size || '',
                   rate: m.Rate != null ? String(m.Rate) : '',
                 });
               }}
@@ -139,6 +143,13 @@ export default function OpeningStock() {
               filterOption={matchMaterial}
               placeholder="Type material (min 3 chars)..."
               required
+            />
+            <Input
+              label="Size"
+              value={form.size || ''}
+              readOnly
+              placeholder="—"
+              className="bg-slate-50"
             />
             <WarehouseSelect
               label="Warehouse"
@@ -167,7 +178,7 @@ export default function OpeningStock() {
         <ListToolbar
           search={search}
           onSearchChange={setSearch}
-          searchPlaceholder="Search by material, color, HSN, location, remark..."
+          searchPlaceholder="Search by material, color, size, HSN, location, remark..."
         >
           <div className="w-full lg:w-56">
             <WarehouseSelect

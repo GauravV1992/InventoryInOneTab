@@ -194,7 +194,7 @@ BEGIN
         INSERT INTO dbo.PurchaseInwardDetail (PurchaseId, MaterialId, LocationId, Quantity, Rate)
         SELECT @PurchaseId,
                COALESCE(MaterialId, MaterialId2),
-               COALESCE(LocationId, LocationId2),
+               COALESCE(LocationId, LocationId2, @LocationId),
                COALESCE(Quantity, Quantity2),
                COALESCE(Rate, Rate2, 0)
         FROM OPENJSON(@DetailsJson)
@@ -205,7 +205,7 @@ BEGIN
             Rate DECIMAL(18,2) '$.Rate', Rate2 DECIMAL(18,2) '$.rate'
         )
         WHERE COALESCE(MaterialId, MaterialId2) IS NOT NULL
-          AND COALESCE(LocationId, LocationId2) IS NOT NULL
+          AND COALESCE(LocationId, LocationId2, @LocationId) IS NOT NULL
           AND COALESCE(Quantity, Quantity2) > 0;
 
         IF NOT EXISTS (SELECT 1 FROM dbo.PurchaseInwardDetail WHERE PurchaseId = @PurchaseId)
@@ -333,7 +333,7 @@ BEGIN
             Rate DECIMAL(18,2) '$.Rate', Rate2 DECIMAL(18,2) '$.rate'
         )
         WHERE COALESCE(MaterialId, MaterialId2) IS NOT NULL
-          AND COALESCE(LocationId, LocationId2) IS NOT NULL
+          AND COALESCE(LocationId, LocationId2, @LocationId) IS NOT NULL
           AND COALESCE(Quantity, Quantity2) > 0;
 
         IF NOT EXISTS (SELECT 1 FROM dbo.SalesDetail WHERE SalesId = @SalesId)
@@ -463,7 +463,7 @@ BEGIN
             Rate DECIMAL(18,2) '$.Rate', Rate2 DECIMAL(18,2) '$.rate'
         )
         WHERE COALESCE(MaterialId, MaterialId2) IS NOT NULL
-          AND COALESCE(LocationId, LocationId2) IS NOT NULL
+          AND COALESCE(LocationId, LocationId2, @LocationId) IS NOT NULL
           AND COALESCE(Quantity, Quantity2) > 0;
 
         IF NOT EXISTS (SELECT 1 FROM dbo.SalesDetail WHERE SalesId = @SalesId)

@@ -4,7 +4,7 @@ import api from '../api';
 import { PageHeader, Card, Button, Input, Select, WarehouseSelect, Autocomplete, Alert, Table, Pagination, PageLoading } from '../components/UI';
 import { WhatsAppIcon } from '../components/WhatsAppIcon';
 import { filterByDateRange, paginate, defaultMonthRange, PAGE_SIZE } from '../utils/listHelpers';
-import { matchMaterial, matchCustomer, materialLabel } from '../utils/autocompleteHelpers';
+import { matchMaterial, matchCustomer, materialLabel, materialDisplayName } from '../utils/autocompleteHelpers';
 import { fetchAccountProfile, profileToCompany } from '../utils/accountProfile';
 import { calcSalesTotals, calcSalesTotalsFromSale, autoRoundOff } from '../utils/salesTotals';
 import { fetchMaterials, fetchLocations } from '../utils/masterCache';
@@ -37,6 +37,7 @@ async function withCompanyProfile(action, sale) {
 const emptyRow = () => ({
   materialId: '',
   materialName: '',
+  size: '',
   locationId: '',
   locationName: '',
   available: null,
@@ -203,6 +204,7 @@ export default function Sales() {
         const row = {
           materialId: String(item.MaterialId),
           materialName: item.MaterialName || '',
+          size: item.Size || '',
           locationId: String(item.DetailLocationId || item.LocationId || ''),
           locationName: item.DetailLocationName || item.LocationName || '',
           available: null,
@@ -263,6 +265,7 @@ export default function Sales() {
       ...emptyRow(),
       materialId: String(selected.MaterialId),
       materialName: selected.MaterialName,
+      size: selected.Size || '',
       rate: selected.SalesRate != null && selected.SalesRate !== ''
         ? selected.SalesRate
         : selected.Rate,
@@ -391,7 +394,7 @@ export default function Sales() {
     {
       key: 'items', label: 'Items',
       render: (r) => r.items.map((i) =>
-        `${i.MaterialName} @ ${i.LocationName || '—'} (${i.Quantity})`
+        `${materialDisplayName(i)} @ ${i.LocationName || '—'} (${i.Quantity})`
       ).join(', ') || '—',
     },
     {
@@ -500,7 +503,7 @@ export default function Sales() {
             <div className="space-y-4 mb-4 relative isolate">
               {details.map((row, i) => (
                 <div key={i} className="border border-slate-200 rounded-xl p-4 bg-slate-50/50 relative">
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-3 items-end">
                     <div className="lg:col-span-2 relative">
                       <Autocomplete
                         label="Material"
@@ -515,6 +518,15 @@ export default function Sales() {
                         placeholder="Type material (min 3 chars)..."
                         inputClassName="px-3 py-2 rounded-lg"
                         required
+                      />
+                    </div>
+                    <div>
+                      <Input
+                        label="Size"
+                        value={row.size || ''}
+                        readOnly
+                        placeholder="—"
+                        className="bg-slate-50"
                       />
                     </div>
                     <div className="relative">

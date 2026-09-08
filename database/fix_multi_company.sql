@@ -426,22 +426,24 @@ CREATE OR ALTER PROCEDURE dbo.sp_SaveMaterial
     @Color        NVARCHAR(50) = NULL,
     @HSNCode      NVARCHAR(20) = NULL,
     @Rate         DECIMAL(18,2),
+    @SalesRate    DECIMAL(18,2) = 0,
     @Unit         NVARCHAR(20),
     @Remark       NVARCHAR(500) = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
+    SET @SalesRate = ISNULL(@SalesRate, 0);
     IF @MaterialId IS NULL OR @MaterialId = 0
     BEGIN
-        INSERT INTO dbo.MaterialMaster (CompanyId, MaterialName, Color, HSNCode, Rate, Unit, Remark)
-        VALUES (@CompanyId, @MaterialName, @Color, @HSNCode, @Rate, @Unit, @Remark);
+        INSERT INTO dbo.MaterialMaster (CompanyId, MaterialName, Color, HSNCode, Rate, SalesRate, Unit, Remark)
+        VALUES (@CompanyId, @MaterialName, @Color, @HSNCode, @Rate, @SalesRate, @Unit, @Remark);
         SELECT SCOPE_IDENTITY() AS MaterialId;
     END
     ELSE
     BEGIN
         UPDATE dbo.MaterialMaster
         SET MaterialName = @MaterialName, Color = @Color, HSNCode = @HSNCode,
-            Rate = @Rate, Unit = @Unit, Remark = @Remark, UpdatedAt = SYSUTCDATETIME()
+            Rate = @Rate, SalesRate = @SalesRate, Unit = @Unit, Remark = @Remark, UpdatedAt = SYSUTCDATETIME()
         WHERE MaterialId = @MaterialId AND CompanyId = @CompanyId;
         SELECT @MaterialId AS MaterialId;
     END
@@ -726,21 +728,28 @@ BEGIN
 
         DECLARE @PurchaseId INT = SCOPE_IDENTITY();
 
-        INSERT INTO dbo.PurchaseInwardDetail (PurchaseId, MaterialId, Quantity, Rate)
-        SELECT @PurchaseId, COALESCE(MaterialId, MaterialId2), COALESCE(Quantity, Quantity2), COALESCE(Rate, Rate2, 0)
+        INSERT INTO dbo.PurchaseInwardDetail (PurchaseId, MaterialId, LocationId, Quantity, Rate)
+        SELECT @PurchaseId,
+               COALESCE(MaterialId, MaterialId2),
+               COALESCE(LocationId, LocationId2, @LocationId),
+               COALESCE(Quantity, Quantity2),
+               COALESCE(Rate, Rate2, 0)
         FROM OPENJSON(@DetailsJson)
         WITH (
             MaterialId INT '$.MaterialId', MaterialId2 INT '$.materialId',
+            LocationId INT '$.LocationId', LocationId2 INT '$.locationId',
             Quantity DECIMAL(18,3) '$.Quantity', Quantity2 DECIMAL(18,3) '$.quantity',
             Rate DECIMAL(18,2) '$.Rate', Rate2 DECIMAL(18,2) '$.rate'
         )
-        WHERE COALESCE(MaterialId, MaterialId2) IS NOT NULL AND COALESCE(Quantity, Quantity2) > 0;
+        WHERE COALESCE(MaterialId, MaterialId2) IS NOT NULL
+          AND COALESCE(LocationId, LocationId2, @LocationId) IS NOT NULL
+          AND COALESCE(Quantity, Quantity2) > 0;
 
         IF NOT EXISTS (SELECT 1 FROM dbo.PurchaseInwardDetail WHERE PurchaseId = @PurchaseId)
-            THROW 50003, N'No valid purchase items found. Check material and quantity.', 1;
+            THROW 50003, N'No valid purchase items found. Check material, warehouse and quantity.', 1;
 
         INSERT INTO dbo.StockLedger (CompanyId, MaterialId, LocationId, TransactionType, ReferenceId, ReferenceNo, TransactionDate, QuantityIn, QuantityOut)
-        SELECT @CompanyId, d.MaterialId, @LocationId, N'PURCHASE', @PurchaseId, @PurchaseNo, @PurchaseDate, d.Quantity, 0
+        SELECT @CompanyId, d.MaterialId, d.LocationId, N'PURCHASE', @PurchaseId, @PurchaseNo, @PurchaseDate, d.Quantity, 0
         FROM dbo.PurchaseInwardDetail d
         WHERE d.PurchaseId = @PurchaseId;
 
@@ -810,21 +819,28 @@ BEGIN
         SET PurchaseDate = @PurchaseDate, LocationId = @LocationId, SupplierName = @SupplierName, Remark = @Remark
         WHERE PurchaseId = @PurchaseId AND CompanyId = @CompanyId;
 
-        INSERT INTO dbo.PurchaseInwardDetail (PurchaseId, MaterialId, Quantity, Rate)
-        SELECT @PurchaseId, COALESCE(MaterialId, MaterialId2), COALESCE(Quantity, Quantity2), COALESCE(Rate, Rate2, 0)
+        INSERT INTO dbo.PurchaseInwardDetail (PurchaseId, MaterialId, LocationId, Quantity, Rate)
+        SELECT @PurchaseId,
+               COALESCE(MaterialId, MaterialId2),
+               COALESCE(LocationId, LocationId2, @LocationId),
+               COALESCE(Quantity, Quantity2),
+               COALESCE(Rate, Rate2, 0)
         FROM OPENJSON(@DetailsJson)
         WITH (
             MaterialId INT '$.MaterialId', MaterialId2 INT '$.materialId',
+            LocationId INT '$.LocationId', LocationId2 INT '$.locationId',
             Quantity DECIMAL(18,3) '$.Quantity', Quantity2 DECIMAL(18,3) '$.quantity',
             Rate DECIMAL(18,2) '$.Rate', Rate2 DECIMAL(18,2) '$.rate'
         )
-        WHERE COALESCE(MaterialId, MaterialId2) IS NOT NULL AND COALESCE(Quantity, Quantity2) > 0;
+        WHERE COALESCE(MaterialId, MaterialId2) IS NOT NULL
+          AND COALESCE(LocationId, LocationId2, @LocationId) IS NOT NULL
+          AND COALESCE(Quantity, Quantity2) > 0;
 
         IF NOT EXISTS (SELECT 1 FROM dbo.PurchaseInwardDetail WHERE PurchaseId = @PurchaseId)
             THROW 50003, N'No valid purchase items found.', 1;
 
         INSERT INTO dbo.StockLedger (CompanyId, MaterialId, LocationId, TransactionType, ReferenceId, ReferenceNo, TransactionDate, QuantityIn, QuantityOut)
-        SELECT @CompanyId, d.MaterialId, @LocationId, N'PURCHASE', @PurchaseId, @PurchaseNo, @PurchaseDate, d.Quantity, 0
+        SELECT @CompanyId, d.MaterialId, d.LocationId, N'PURCHASE', @PurchaseId, @PurchaseNo, @PurchaseDate, d.Quantity, 0
         FROM dbo.PurchaseInwardDetail d WHERE d.PurchaseId = @PurchaseId;
 
         COMMIT TRANSACTION;
